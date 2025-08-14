@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ha">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hausa AI Chat</title>
+  <meta name="theme-color" content="#1e1e1e" />
+  <style>
+    :root{
+      --bg:#1e1e1e; --bg-2:#2b2b2b; --bg-3:#3a3a3a;
+      --txt:#f0f0f0; --muted:#9aa0a6; --accent:#4a90e2;
+      --bubble:#3a3a3a; --user:#4a90e2;
+      --border:#444;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,Arial; background:var(--bg); color:var(--txt);
+      display:flex; flex-direction:column; height:100vh;
+    }
+    header{
+      background:var(--bg-2); padding:14px 48px 14px 14px; text-align:center;
+      font-weight:700; position:relative; border-bottom:1px solid var(--border);
+    }
+    header button{
+      position:absolute; right:10px; top:8px; background:var(--bg-3);
+      color:var(--txt); border:1px solid var(--border); padding:6px 10px;
+      border-radius:8px; cursor:pointer;
+    }
+    #chat{
+      flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;
+    }
+    .message{
+      max-width:82%; padding:10px 14px; border-radius:16px; word-wrap:break-word;
+      line-height:1.35; box-shadow:0 1px 0 rgba(0,0,0,0.2);
+    }
+    .bot{ align-self:flex-start; background:var(--bubble); color:var(--txt); }
+    .user{ align-self:flex-end; background:var(--user); color:#fff; }
+    .suggestion-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+    .suggestion{
+      background:var(--bg-2); color:var(--accent); border:1px solid var(--accent);
+      padding:8px 12px; border-radius:20px; font-size:14px; cursor:pointer;
+    }
+    #input-area{
+      display:flex; gap:8px; padding:10px; background:var(--bg-2);
+      border-top:1px solid var(--border);
+    }
+    #user-input{
+      flex:1; padding:12px; border:1px solid var(--border); border-radius:20px;
+      background:var(--bg); color:var(--txt); outline:none;
+    }
+    #send-btn{
+      padding:0 16px; border:none; background:var(--accent); color:#fff;
+      border-radius:20px; cursor:pointer; font-weight:600;
+    }
+    /* About modal */
+    #about{
+      position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.7);
+      z-index:50; padding:16px;
+    }
+    .about-card{
+      background:var(--bg-2); color:var(--txt); border:1px solid var(--border);
+      border-radius:12px; max-width:520px; width:100%; padding:20px; text-align:center;
+    }
+    .about-card h2{ margin:0 0 8px; color:var(--accent); }
+    .about-card p{ margin:8px 0; color:var(--txt); }
+    .about-card .credits{ color:var(--muted); font-size:13px; margin-top:8px; }
+    .about-card button{
+      margin-top:14px; background:var(--accent); color:#fff; border:none;
+      padding:8px 14px; border-radius:8px; cursor:pointer;
+    }
+    .muted{ color:var(--muted); font-size:12px; }
+  </style>
+</head>
+<body>
+  <header>
+    Hausa AI Chat
+    <button onclick="openAbout()">About</button>
+  </header>
+
+  <main id="chat">
+    <!-- Intro message inside chat -->
+    <div class="message bot">
+      Sannu! Me zan iya taimaka maka da shi a yau?
+      <div class="suggestion-row">
+        <span class="suggestion" onclick="sendSuggestion('Labaran yau')">Labaran yau</span>
+        <span class="suggestion" onclick="sendSuggestion('Taimakon karatu')">Taimakon karatu</span>
+        <span class="suggestion" onclick="sendSuggestion('Shawara kan kasuwanci')">Shawara kan kasuwanci</span>
+        <span class="suggestion" onclick="sendSuggestion('Nishadi')">Nishadi</span>
+      </div>
+      <div class="muted" style="margin-top:6px;">Kai tsaye ka rubuta tambaya a Hausa, ko danna ɗaya daga sama.</div>
+    </div>
+  </main>
+
+  <div id="input-area">
+    <input id="user-input" type="text" placeholder="Rubuta saƙonka a nan…" />
+    <button id="send-btn">➤</button>
+  </div>
+
+  <!-- About Modal -->
+  <div id="about">
+    <div class="about-card">
+      <h2>Game da Wannan Aiki</h2>
+      <p>An haɓaka shi ta <strong>Ahmad Garba Adamu</strong>, matashin ɗan kasuwa daga Najeriya mai sha’awar fasaha da kirkire-kirkire.</p>
+      <p>Manufarsa ita ce kawo fasahar AI cikin Hausa don a samu bayanai cikin sauri da sauƙi ga al’umma.</p>
+      <p class="credits">Powered by Groq • Special Thanks to OpenAI</p>
+      <button onclick="closeAbout()">Rufe</button>
+    </div>
+  </div>
+
+  <script>
+    // front-end → our own backend route (key is hidden on the server)
+    const API_ROUTE = "/api/chat";
+
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("user-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    sendBtn.addEventListener("click", () => sendMessage());
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+
+    function addMessage(text, who="bot"){
+      const div = document.createElement("div");
+      div.className = `message ${who}`;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function sendSuggestion(t){ sendMessage(t); }
+
+    async function sendMessage(prefill=null){
+      const text = (prefill ?? input.value).trim();
+      if(!text) return;
+
+      addMessage(text, "user");
+      input.value = "";
+
+      // show placeholder bot reply while we wait
+      const placeholder = document.createElement("div");
+      placeholder.className = "message bot";
+      placeholder.textContent = "…";
+      chat.appendChild(placeholder);
+      chat.scrollTop = chat.scrollHeight;
+
+      try{
+        const r = await fetch(API_ROUTE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await r.json();
+        const reply = data?.reply || "🙇🏽‍♂️ Ba a samu amsa ba.";
+        placeholder.textContent = reply;
+      }catch(e){
+        placeholder.textContent = "Yi haƙuri, an sami matsalar sadarwa.";
+        console.error(e);
+      }
+    }
+
+    // About modal
+    function openAbout(){ document.getElementById("about").style.display = "grid"; }
+    function closeAbout(){ document.getElementById("about").style.display = "none"; }
+    window.openAbout = openAbout; window.closeAbout = closeAbout; window.sendSuggestion = sendSuggestion;
+  </script>
+</body>
+</html>
