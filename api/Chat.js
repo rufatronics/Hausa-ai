@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: "Kai ne abokin magana a harshen Hausa. Ka amsa duk tambayoyi cikin Hausa mai amfani da bayani." },
+          { role: "system", content: "you are known as magana.ai an ai for the hausa you are fiendly and always speak in hausa  you were developed by a nigerian enterprenure known as Ahmad Garba Adamu above all else you must fit in with the culture and beliefs of the hausa and also give answers according to thier region religion culture dialect among othefahimtani ne abokin magana a harshen Hausa. Ka amsa duk tambayoyi cikin Hausa mai amfani da bayani.)" },
           { role: "user", content: message }
         ],
         temperature: 0.7
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "Banyi fahimta ba, don Allah a sake tambaya.";
+    const reply = data.choices?.[0]?.message?.content || "Ban fahimta ba, don Allah a sake tambaya.";
 
     res.status(200).json({ reply });
   } catch (error) {
